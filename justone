@@ -1,0 +1,39 @@
+#!/usr/bin/env perl
+
+$usage = <<EOM;
+Usage:
+    $0 PORT COMMAND
+    PORT - an unused port number between 1024 and 65536
+    COMMAND - one or more commands to be run but only if PORT is not taken
+    Examples:
+      $0 64444 ps x
+      $0 64444 ps x | grep -v 'ps'
+      $0 64444 sleep 5; ls; sleep 5     # PORT becomes available after first sleep is done
+      $0 64444 '(sleep 5; ls; sleep 5)' # PORT becomes available after second sleep is done
+This is useful for making sure that only one instance of a cron job is running.
+Solves problems like this:
+  http://serverfault.com/questions/129814/minutely-cron-ensuring-only-a-single-instance
+EOM
+
+$port = shift(@ARGV);
+$com = join(' ', @ARGV);
+
+if ($port =~ m/\D/){ print "invalid port number\n"; exit(); }
+if (! $port){ print "$usage\n"; exit(); }
+if (! $com){  print "need command\n"; exit(); }
+
+use Socket;
+
+$| = 1;  # output auto flush
+
+$proto = getprotobyname('tcp');
+my($sock);
+socket($sock, AF_INET, SOCK_STREAM, $proto);
+if (! bind($sock, sockaddr_in($port, INADDR_ANY))){
+#  print "already running\n"; 
+  exit(1);
+}
+
+#print "ok to run\n";
+system "$com";
+
